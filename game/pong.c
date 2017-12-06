@@ -9,6 +9,7 @@
 #include <p2switches.h>
 #include <libTimer.h>
 #include "buzzer.h"
+#include "scoreSet.h"
 #define GREEN_LED BIT6
 
 int paddleLoc = 0; //location of the paddle
@@ -48,7 +49,14 @@ void movLayerDraw(MovLayer *movLayers, Layer *layers){
   int row, col;
   MovLayer *movLayer;
 
-  and_sr(~8);        /**< disable interrupts (GIE off)*/
+  and_sr(~8); /**< disable interrupts (GIE off)*/
+  for(movLayer = movLayers; movLayer; movLayer = movLayer->next)
+    {
+      Layer *l = movLayer->layer;
+      l->posLast = l->pos;
+      l->pos = l->posNext;
+    }
+  or_sr(8); /**<disable interrupts (GIE on)*/
   for(movLayer = movLayers; movLayer; movLayer = movLayer->next){ /* for each moving layer */
     Region bounds;
     layerGetBounds(movLayer->layer, &bounds);
@@ -119,9 +127,9 @@ void m1Advance(MovLayer *m1, Region *fence){
   {
     drawString5x7(40, 3, "PaddleBall", COLOR_BLACK, COLOR_BLUE);
     drawString5x7(47, 30, "Press", COLOR_BLACK, COLOR_BLUE);
-    drawString5x7(37, 50, "Button 1 or 4", COLOR_BLACK, COLOR_BLUE);
+    drawString5x7(37, 50, "Button 2", COLOR_BLACK, COLOR_BLUE);
     drawString5x7(43, 70, "to Begin", COLOR_BLACK, COLOR_BLUE);
-    if(!(BIT0 & button) || !(BIT3 & button))
+    if(!(BIT1 & button))
       {
 	clearScreen(COLOR_BLUE);
 	layerDraw(&ball);
@@ -162,7 +170,7 @@ void m1Advance(MovLayer *m1, Region *fence){
   void paddleMvmt(int btn)
   {
     paddleMove.layer->posNext.axes[0] = paddleMove.layer->pos.axes[0] + paddleLoc;
-    if(!(button & BIT0))//move left
+    if(!(btn & BIT0))//move left
       {
 	if(paddleMove.layer->pos.axes[0] >= 25)
 	  {
@@ -175,7 +183,7 @@ void m1Advance(MovLayer *m1, Region *fence){
       }
     else //move right
       {
-	if(!(button & BIT3))
+	if(!(btn & BIT3))
 	  {
 	    if(paddleMove.layer->pos.axes[0] <= 100)
 	      {
@@ -249,16 +257,16 @@ void m1Advance(MovLayer *m1, Region *fence){
   /** Watchdog timer interrupt handler. 15 interrupts/sec */
   void wdt_c_handler()
   {
-    static short count = 0;
+    static short cnt = 0;
     P1OUT |= GREEN_LED;
-    count ++;
-    if(count == 20)
+    cnt ++;
+    if(cnt == 20)
       {
 	if(screenOn == 1)
 	  m1Advance(&ballMove, &boundary);
 	if(p2sw_read())
 	  screenRedraw = 1;
-	count = 0;
+	cnt = 0;
       }
     P1OUT &= ~GREEN_LED;
   }
